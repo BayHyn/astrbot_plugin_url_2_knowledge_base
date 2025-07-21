@@ -1,4 +1,5 @@
 import asyncio
+from astrbot.api import logger
 from . import content_extractor, text_processor, clusterer, summarizer
 from ..services import LLMService, EmbeddingService
 
@@ -19,20 +20,20 @@ async def run_pipeline(
     """
     Executes the full URL-to-knowledge-base pipeline in memory.
     """
-    print("="*80)
-    print(f"🚀 Starting Knowledge Base Pipeline for URL: {url}")
-    print("="*80)
+    logger.info("="*80)
+    logger.info(f"🚀 Starting Knowledge Base Pipeline for URL: {url}")
+    logger.info("="*80)
 
     # --- Step 1: Content Extraction ---
-    print("\n[Step 1/4] Extracting content...")
+    logger.info("\n[Step 1/4] Extracting content...")
     extracted_content = await content_extractor.extract_content_from_url(url, debug_mode=debug_mode)
     if not extracted_content:
-        print("❌ Pipeline failed at content extraction step. Aborting.")
+        logger.error("❌ Pipeline failed at content extraction step. Aborting.")
         return None
-    print(f"✅ Content extraction complete for title: {extracted_content.title}")
+    logger.info(f"✅ Content extraction complete for title: {extracted_content.title}")
 
     # --- Step 2: Text Processing and Embedding ---
-    print("\n[Step 2/4] Processing text and generating embeddings...")
+    logger.info("\n[Step 2/4] Processing text and generating embeddings...")
     processed_data = await text_processor.process_text_and_embed(
         text=extracted_content.text,
         repair_llm_service=repair_llm_service,
@@ -43,28 +44,28 @@ async def run_pipeline(
         repair_max_rpm=repair_max_rpm
     )
     if not processed_data:
-        print("❌ Pipeline failed at text processing step. Aborting.")
+        logger.error("❌ Pipeline failed at text processing step. Aborting.")
         return None
-    print(f"✅ Text processing complete. Generated {len(processed_data)} chunks.")
+    logger.info(f"✅ Text processing complete. Generated {len(processed_data)} chunks.")
 
     if not use_clustering_summary:
-        print("\n✅ Pipeline finished without clustering and summarization as requested.")
-        print("="*80)
+        logger.info("\n✅ Pipeline finished without clustering and summarization as requested.")
+        logger.info("="*80)
         return {"processed_chunks": processed_data}
 
     # --- Step 3: Clustering ---
-    print("\n[Step 3/4] Clustering text chunks...")
+    logger.info("\n[Step 3/4] Clustering text chunks...")
     # Note: hdbscan is synchronous. For a fully async plugin, this should be
     # run in a thread pool executor to avoid blocking the event loop.
     loop = asyncio.get_running_loop()
     clustered_data = await loop.run_in_executor(None, clusterer.cluster_embeddings, processed_data)
     if not clustered_data:
-        print("❌ Pipeline failed at clustering step. Aborting.")
+        logger.error("❌ Pipeline failed at clustering step. Aborting.")
         return None
-    print(f"✅ Clustering complete.")
+    logger.info(f"✅ Clustering complete.")
 
     # --- Step 4: Summarization ---
-    print("\n[Step 4/4] Generating final hierarchical summary...")
+    logger.info("\n[Step 4/4] Generating final hierarchical summary...")
     summary_data = await summarizer.generate_summaries(
         clustered_data=clustered_data,
         summarize_llm_service=summarize_llm_service,
@@ -72,10 +73,10 @@ async def run_pipeline(
         summarize_max_rpm=summarize_max_rpm
     )
     if not summary_data:
-        print("❌ Pipeline failed at summarization step. Aborting.")
+        logger.error("❌ Pipeline failed at summarization step. Aborting.")
         return None
-    print(f"✅ Summarization complete.")
+    logger.info(f"✅ Summarization complete.")
 
-    print("\n🎉 Pipeline execution finished successfully!")
-    print("="*80)
+    logger.info("\n🎉 Pipeline execution finished successfully!")
+    logger.info("="*80)
     return summary_data

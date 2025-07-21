@@ -19,7 +19,7 @@ async def extract_content_from_url(url: str, debug_mode: bool = False) -> Extrac
     Fetches a URL using Playwright and extracts main content using Trafilatura.
     This is an async version.
     """
-    print(f"Fetching URL: {url}")
+    logger.info(f"Fetching URL: {url}")
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
@@ -28,12 +28,12 @@ async def extract_content_from_url(url: str, debug_mode: bool = False) -> Extrac
             html_content = await page.content()
             title = await page.title()
         except Exception as e:
-            print(f"Error fetching page with Playwright: {e}")
+            logger.error(f"Error fetching page with Playwright: {e}")
             return None
         finally:
             await browser.close()
 
-    print("Extracting main content with Trafilatura...")
+    logger.info("Extracting main content with Trafilatura...")
     # Run trafilatura in a thread to avoid blocking the event loop
     loop = asyncio.get_running_loop()
     extracted_text = await loop.run_in_executor(
@@ -41,7 +41,7 @@ async def extract_content_from_url(url: str, debug_mode: bool = False) -> Extrac
     )
 
     if not extracted_text:
-        print("Warning: Trafilatura could not extract main content. Falling back to body text.")
+        logger.warning("Trafilatura could not extract main content. Falling back to body text.")
         soup = BeautifulSoup(html_content, 'lxml')
         body = soup.find('body')
         if body:
@@ -50,7 +50,7 @@ async def extract_content_from_url(url: str, debug_mode: bool = False) -> Extrac
             extracted_text = ""
 
     if not extracted_text:
-        print("Failed to extract any content.")
+        logger.error("Failed to extract any content.")
         return None
 
     if debug_mode:
