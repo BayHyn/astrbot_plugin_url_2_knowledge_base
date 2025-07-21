@@ -94,20 +94,21 @@ async def process_text_and_embed(
 
     processed_data = []
     logger.info("Generating embeddings for each chunk in parallel...")
-    
-    # Note: Embedding generation might also need rate limiting if the provider has strict RPM limits.
-    # For now, we assume it's less of a concern than LLM calls.
-    embedding_tasks = [embedding_service.get_embedding(chunk) for chunk in chunks if chunk]
+
+    # Create tasks with indices, filtering out empty chunks
+    valid_chunks_with_indices = [(i, chunk) for i, chunk in enumerate(chunks) if chunk]
+    embedding_tasks = [embedding_service.get_embedding(chunk) for _, chunk in valid_chunks_with_indices]
     embedding_results = await asyncio.gather(*embedding_tasks, return_exceptions=True)
 
     for i, result in enumerate(embedding_results):
+        original_index, original_text = valid_chunks_with_indices[i]
         if isinstance(result, Exception):
-            logger.error(f"    Embedding for chunk {i} generated an exception: {result}")
+            logger.error(f"    Embedding for chunk {original_index} generated an exception: {result}")
         else:
             if result:
                 processed_data.append({
-                    "chunk_id": i,
-                    "text": chunks[i],
+                    "chunk_id": original_index,
+                    "text": original_text,
                     "embedding": result
                 })
 
