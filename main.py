@@ -1,5 +1,6 @@
 import asyncio
 import json
+import sys
 import hashlib
 import subprocess
 from datetime import datetime
@@ -107,6 +108,8 @@ class Url2KbPlugin(Star):
                     file_name = f"{timestamp}_{url_hash}.json"
                     file_path = data_dir / file_name
                     
+                    # 确保目录存在
+                    file_path.parent.mkdir(parents=True, exist_ok=True)
                     with open(file_path, 'w', encoding='utf-8') as f:
                         json.dump(result, f, ensure_ascii=False, indent=4)
                         
@@ -137,7 +140,7 @@ class Url2KbPlugin(Star):
                     loop = asyncio.get_running_loop()
                     await loop.run_in_executor(
                         None,
-                        lambda: subprocess.run(["python", "-m", "playwright", "install", "--with-deps"], check=True, capture_output=True, text=True)
+                        lambda: subprocess.run([sys.executable, "-m", "playwright", "install", "--with-deps"], check=True, capture_output=True, text=True)
                     )
                     logger.info("Playwright browser drivers installed successfully.")
                 except subprocess.CalledProcessError as install_error:
