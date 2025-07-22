@@ -8,24 +8,28 @@ from ..services import EmbeddingService, LLMService
 from .utils import RateLimiter
 
 # --- Prompts ---
-TEXT_REPAIR_SYSTEM_PROMPT = """You are an expert text processor. Your task is to analyze the given text chunk and improve it.
+TEXT_REPAIR_SYSTEM_PROMPT = """You are an expert text editor. Your task is to "purify" a given text chunk by extracting valuable information and discarding noise.
 
-Follow these steps:
-1.  **Analyze Coherence**: First, determine if the chunk contains one single, coherent topic or multiple distinct topics.
-2.  **Process the Text**:
-    *   **If the chunk is coherent (one topic)**: Repair any grammatical errors or formatting issues, then translate the entire repaired text into Simplified Chinese. Enclose the final result in a single `<repaired_text>` tag.
-    *   **If the chunk contains multiple topics**:
-        a. First, split the chunk into smaller, semantically coherent sub-chunks.
-        b. For each sub-chunk, repair and translate it into Simplified Chinese.
-        c. Enclose EACH of the final, translated sub-chunks in its own `<repaired_text>` tag.
-3.  **Output Format**: Your entire output must ONLY be the `<repaired_text>` tags. Do not add any other text.
+**Step 1: Purify the Content**
+- Read the entire text chunk.
+- Identify and **remove** all worthless parts. Worthless content includes: UI navigation text ("click here", "edit"), metadata (version tables, author lists), **lists of topics or headings without corresponding explanatory text**, lists of links, fragmented sentences, ads, etc.
+- Keep only the substantive, valuable content.
 
-Example for a single topic:
-<repaired_text>修复和翻译后的单一文本块</repaired_text>
+**Step 2: Process the Purified Content**
+- After purification, evaluate what remains.
+- **If the remaining text is empty or meaningless (e.g., only contains headings)**: Your ONLY output should be the tag `<discard_chunk />`.
+- **If valuable text remains**:
+    1.  **Analyze Coherence**: Determine if the purified text contains one single, coherent topic or multiple distinct topics.
+    2.  **Process the Text**:
+        *   **If coherent (one topic)**: Repair grammar, fix formatting, and translate the entire text into Simplified Chinese. Enclose the final result in a single `<repaired_text>` tag.
+        *   **If multiple topics**:
+            a. Split the text into smaller, semantically coherent sub-chunks.
+            b. For each sub-chunk, repair and translate it into Simplified Chinese.
+            c. Enclose EACH final, translated sub-chunk in its own `<repaired_text>` tag.
 
-Example for multiple topics:
-<repaired_text>修复和翻译后的子块一</repaired_text>
-<repaired_text>修复和翻译后的子块二</repaired_text>
+**Summary of Your Output Rules:**
+- If the chunk is entirely worthless after purification, output only: `<discard_chunk />`
+- If the chunk has valuable parts, output the purified, repaired, and translated parts in one or more `<repaired_text>...</repaired_text>` tags.
 """
 
 async def _repair_and_translate_chunk_with_retry(chunk: str, repair_llm_service: LLMService, rate_limiter: RateLimiter, max_retries: int = 2) -> List[str]:
@@ -38,11 +42,18 @@ async def _repair_and_translate_chunk_with_retry(chunk: str, repair_llm_service:
             async with rate_limiter:
                 response = await repair_llm_service.generate(user_prompt=user_prompt, system_prompt=TEXT_REPAIR_SYSTEM_PROMPT)
             
-            matches = re.findall(r'<repaired_text>(.*?)</repaired_text>', response, re.DOTALL)
+            if '<discard_chunk />' in response:
+                return []  # Signal to discard this chunk
+
+            # More robust regex to handle potential LLM formatting errors (spaces, newlines in tags)
+            matches = re.findall(r'<\s*repaired_text\s*>\s*(.*?)\s*<\s*/\s*repaired_text\s*>', response, re.DOTALL)
+            
             if matches:
+                # Further cleaning to ensure no empty strings are returned
                 return [m.strip() for m in matches if m.strip()]
             else:
-                logger.warning(f"  - LLM response for chunk did not contain valid tags. Attempt {attempt + 1}/{max_retries + 1}.")
+                logger.warning(f"  - LLM response for chunk was not a discard and did not contain valid tags. Attempt {attempt + 1}/{max_retries + 1}. Assuming it's a discard.")
+                return [] # If no valid tags and not explicitly discarded, discard it to be safe.
         except Exception as e:
             logger.warning(f"  - LLM call failed on attempt {attempt + 1}/{max_retries + 1}. Error: {e}")
     
