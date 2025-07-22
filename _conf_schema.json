@@ -1,39 +1,9 @@
 {
-  "repair_llm_provider_id": {
-    "description": "用于文本修复和再分块的 LLM Provider ID",
-    "type": "string",
-    "hint": "留空则使用系统默认的 LLM Provider。请确保所选模型擅长遵循指令。",
-    "default": ""
-  },
-  "summarize_llm_provider_id": {
-    "description": "用于生成主题摘要和总体摘要的 LLM Provider ID",
-    "type": "string",
-    "hint": "留空则使用系统默认的 LLM Provider。建议使用能力较强的大模型。",
-    "default": ""
-  },
-  "embedding_provider_id": {
-    "description": "用于生成文本嵌入的 Embedding Provider ID",
-    "type": "string",
-    "hint": "留空则使用系统默认的 Embedding Provider。",
-    "default": ""
-  },
   "debug_mode": {
     "description": "调试模式开关",
     "type": "bool",
     "hint": "启用后，将在控制台打印详细的中间步骤信息，例如从URL提取的原始文本。",
     "default": false
-  },
-  "chunk_size": {
-    "description": "初始分块大小",
-    "type": "int",
-    "hint": "设置文本分块的字符数。这是一个后备策略，主要在文本没有明显换行符时生效。",
-    "default": 300
-  },
-  "chunk_overlap": {
-    "description": "初始分块重叠大小",
-    "type": "int",
-    "hint": "设置块与块之间的重叠字符数，以保证语义的连续性。",
-    "default": 50
   },
   "summarization_chunk_threshold": {
     "description": "单个主题中，触发Map-Reduce总结的文本块数量阈值。",

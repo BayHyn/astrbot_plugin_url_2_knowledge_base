@@ -50,8 +50,18 @@ async def run_pipeline(
 
     if not use_clustering_summary:
         logger.info("\n✅ Pipeline finished without clustering and summarization as requested.")
+        # 清理并统一返回格式
+        for chunk in processed_data:
+            chunk.pop('embedding', None)
+        
+        # 按照最终格式返回，即使没有聚类和摘要
+        final_result = {
+            "overall_summary": "未执行聚类和摘要。",
+            "topics": [],
+            "noise_points": processed_data  # 所有块都视为未分类的点
+        }
         logger.info("="*80)
-        return {"processed_chunks": processed_data}
+        return final_result
 
     # --- Step 3: Clustering ---
     logger.info("\n[Step 3/4] Clustering text chunks...")
