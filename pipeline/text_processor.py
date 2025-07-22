@@ -55,7 +55,7 @@ async def _repair_and_translate_chunk_with_retry(chunk: str, repair_llm_service:
                 logger.warning(f"  - LLM response for chunk was not a discard and did not contain valid tags. Attempt {attempt + 1}/{max_retries + 1}. Assuming it's a discard.")
                 return [] # If no valid tags and not explicitly discarded, discard it to be safe.
         except Exception as e:
-            logger.warning(f"  - LLM call failed on attempt {attempt + 1}/{max_retries + 1}. Error: {e}")
+            logger.warning(f"  - LLM call failed on attempt {attempt + 1}/{max_retries + 1}. Error: {str(e)}")
     
     logger.error(f"  - Failed to process chunk after {max_retries + 1} attempts. Using original text.")
     return [chunk]
@@ -67,10 +67,11 @@ async def process_text_and_embed(
     use_llm_repair: bool,
     chunk_size: int = 1000,
     chunk_overlap: int = 150,
-    repair_max_rpm: int = 60
+    repair_max_rpm: int = 60,
+    embed_chunks: bool = True
 ) -> list[dict]:
     """
-    Splits text into chunks, optionally repairs them, and generates embeddings.
+    Splits text into chunks, optionally repairs them, and optionally generates embeddings.
     """
     if not text:
         logger.warning("No text found to process. Aborting.")
@@ -78,8 +79,8 @@ async def process_text_and_embed(
 
     logger.info(f"Splitting text into chunks (size={chunk_size}, overlap={chunk_overlap})...")
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap,
+        chunk_size=int(chunk_size),
+        chunk_overlap=int(chunk_overlap),
         length_function=len,
         is_separator_regex=False,
     )
@@ -95,7 +96,7 @@ async def process_text_and_embed(
         final_chunks = []
         for i, result in enumerate(repaired_results):
             if isinstance(result, Exception):
-                logger.warning(f"  - Processing for chunk {i} generated an exception: {result}. Falling back to original.")
+                logger.warning(f"  - Processing for chunk {i} generated an exception: {str(result)}. Falling back to original.")
                 final_chunks.append(chunks[i])
             else:
                 final_chunks.extend(result)
@@ -103,26 +104,28 @@ async def process_text_and_embed(
         logger.info(f"--- Text Processing Step Complete: {len(chunks)} original chunks became {len(final_chunks)} final chunks. ---\n")
         chunks = final_chunks
 
-    processed_data = []
-    logger.info("Generating embeddings for each chunk in parallel...")
+    # Format base data structure
+    processed_data = [{"chunk_id": i, "text": chunk, "embedding": None} for i, chunk in enumerate(chunks) if chunk]
 
-    # Create tasks with indices, filtering out empty chunks
-    valid_chunks_with_indices = [(i, chunk) for i, chunk in enumerate(chunks) if chunk]
-    embedding_tasks = [embedding_service.get_embedding(chunk) for _, chunk in valid_chunks_with_indices]
+    if not embed_chunks:
+        logger.info("Skipping embedding generation as requested.")
+        return processed_data
+
+    logger.info("Generating embeddings for each chunk in parallel...")
+    
+    chunks_to_embed = [item['text'] for item in processed_data]
+    embedding_tasks = [embedding_service.get_embedding(chunk) for chunk in chunks_to_embed]
     embedding_results = await asyncio.gather(*embedding_tasks, return_exceptions=True)
 
+    final_processed_data = []
     for i, result in enumerate(embedding_results):
-        original_index, original_text = valid_chunks_with_indices[i]
         if isinstance(result, Exception):
-            logger.error(f"    Embedding for chunk {original_index} generated an exception: {result}")
+            logger.error(f"    Embedding for chunk {processed_data[i]['chunk_id']} generated an exception: {str(result)}")
         else:
             if result:
-                processed_data.append({
-                    "chunk_id": original_index,
-                    "text": original_text,
-                    "embedding": result
-                })
+                processed_data[i]['embedding'] = result
+                final_processed_data.append(processed_data[i])
 
-    processed_data.sort(key=lambda x: x['chunk_id'])
+    final_processed_data.sort(key=lambda x: x['chunk_id'])
     logger.info("Text processing and embedding complete.")
-    return processed_data
+    return final_processed_data

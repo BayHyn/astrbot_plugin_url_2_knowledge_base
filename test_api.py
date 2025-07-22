@@ -24,8 +24,8 @@ def start_task():
     """发送请求以启动任务并获取 task_id"""
     payload = {
         "url": TARGET_URL,
-        "use_llm_repair": True,
-        "use_clustering_summary": True,
+        "use_llm_repair": False,
+        "use_clustering_summary": False,
         "repair_llm_provider_id": "oneapi_lite",
         "summarize_llm_provider_id": "oneapi",
         "embedding_provider_id": "oneapi_bgem3",
@@ -59,6 +59,11 @@ def poll_status(task_id):
 
         if status == "completed":
             print("\n🎉 任务成功完成!")
+            # 将结果保存到文件
+            output_filename = "output.json"
+            with open(output_filename, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+            print(f"📄 结果已保存到 {output_filename}")
             break
         elif status == "failed":
             print("\n❌ 任务失败!")

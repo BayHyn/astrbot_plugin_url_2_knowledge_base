@@ -41,7 +41,8 @@ async def run_pipeline(
         use_llm_repair=use_llm_repair,
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
-        repair_max_rpm=repair_max_rpm
+        repair_max_rpm=repair_max_rpm,
+        embed_chunks=use_clustering_summary  # Conditionally embed chunks
     )
     if not processed_data:
         logger.error("❌ Pipeline failed at text processing step. Aborting.")
