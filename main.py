@@ -187,26 +187,26 @@ class Url2KbPlugin(Star):
         logger.info("URL to Knowledge Base Plugin terminated.")
 
     async def _check_and_install_playwright(self):
-        """检查 Playwright 浏览器驱动是否存在，如果不存在则尝试自动安装。"""
+        """检查 Playwright 浏览器驱动是否存在，如果不存在则提示用户手动安装。"""
         logger.info("Checking for Playwright browser drivers...")
         try:
             async with async_playwright() as p:
+                # 尝试启动浏览器，如果驱动不存在会抛出异常
                 browser = await p.chromium.launch(headless=True)
                 await browser.close()
             logger.info("Playwright browser drivers are already installed.")
         except Exception as e:
+            # 捕获因驱动不存在而产生的异常
             if "Executable doesn't exist at" in str(e):
-                logger.warning("Playwright browser drivers not found. Attempting to install automatically...")
-                try:
-                    loop = asyncio.get_running_loop()
-                    await loop.run_in_executor(
-                        None,
-                        lambda: subprocess.run([sys.executable, "-m", "playwright", "install", "--with-deps"], check=True, capture_output=True, text=True)
-                    )
-                    logger.info("Playwright browser drivers installed successfully.")
-                except subprocess.CalledProcessError as install_error:
-                    logger.error(f"Failed to install Playwright browsers automatically. Please run 'python -m playwright install --with-deps' manually. Error: {install_error.stderr}")
-                except Exception as install_e:
-                    logger.error(f"An unexpected error occurred during automatic installation. Please run 'python -m playwright install --with-deps' manually. Error: {install_e}")
+                error_message = (
+                    "Playwright browser drivers not found. "
+                    "Please install them manually by running the following command in your terminal:\n"
+                    "python -m playwright install --with-deps"
+                )
+                logger.error(error_message)
+                # 抛出运行时错误，中断插件加载
+                raise RuntimeError(error_message)
             else:
-                logger.warning(f"An issue occurred while checking Playwright status: {e}")
+                # 处理其他可能的 Playwright 相关异常
+                logger.error(f"An unexpected error occurred while checking Playwright status: {e}", exc_info=True)
+                raise e
