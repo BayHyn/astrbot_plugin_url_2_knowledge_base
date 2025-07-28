@@ -199,9 +199,23 @@ class Url2KbPlugin(Star):
             # 捕获因驱动不存在而产生的异常
             if "Executable doesn't exist at" in str(e):
                 error_message = (
-                    "Playwright browser drivers not found. "
-                    "Please install them manually by running the following command in your terminal:\n"
-                    "python -m playwright install --with-deps"
+                    "Playwright browser drivers not found. Please follow the instructions below.\n\n"
+                    "--- For Local/VM Installation ---\n"
+                    "Run this command in your terminal:\n"
+                    "   python -m playwright install --with-deps\n\n"
+                    "--- For Docker Container Users ---\n"
+                    "To install and persist drivers, follow these two steps:\n\n"
+                    "Step 1: Install drivers in the running container (one-time action).\n"
+                    "   Find your container name/ID (e.g., with 'docker ps') and run:\n"
+                    "   docker exec -it <your_container_name_or_id> python -m playwright install --with-deps\n\n"
+                    "Step 2: Persist drivers by mapping a volume.\n"
+                    "   When creating your container, map a host directory to '/root/.cache/ms-playwright'.\n"
+                    "   Example for docker-compose.yml:\n"
+                    "     services:\n"
+                    "       your_service:\n"
+                    "         volumes:\n"
+                    "           - ./playwright_cache:/root/.cache/ms-playwright\n\n"
+                    "   This ensures that even if the container restarts, the drivers remain available."
                 )
                 logger.error(error_message)
                 # 抛出运行时错误，中断插件加载
