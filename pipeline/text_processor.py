@@ -3,7 +3,7 @@ import re
 import time
 from typing import List
 from astrbot.api import logger
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from ..services import EmbeddingService, LLMService
 from .utils import RateLimiter
 

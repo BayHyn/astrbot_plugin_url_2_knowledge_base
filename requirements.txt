@@ -5,3 +5,4 @@ lxml
 langchain
 hdbscan
 numpy
+langchain-text-splitters
